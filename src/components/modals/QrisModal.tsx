@@ -28,7 +28,7 @@ export const QrisModal: React.FC<QrisModalProps> = ({ isOpen, onClose }) => {
 
           <div className="bg-white p-3 rounded-sm inline-block shadow-lg mb-4">
             <img
-              src="/qris-code.png"
+              src={`${import.meta.env.BASE_URL}qris-code.png`}
               alt="Kode QR AKID Malang"
               className="w-56 h-56 object-contain"
               style={{ imageRendering: 'pixelated' }}
