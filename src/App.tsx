@@ -1,5 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { onAuthStateChanged, signInWithPopup, signOut, User } from 'firebase/auth';
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+  updateProfile,
+  User,
+} from 'firebase/auth';
 import { Cloud, CloudOff, LogIn, Volume2, VolumeX } from 'lucide-react';
 import { auth, googleProvider } from './firebase';
 import {
@@ -70,6 +79,7 @@ import { FullHistoryModal } from './components/modals/FullHistoryModal';
 import { QrisModal } from './components/modals/QrisModal';
 import { AdminModal } from './components/modals/AdminModal';
 import { AuthSyncModal } from './components/modals/AuthSyncModal';
+import { EmailAuthForm } from './components/EmailAuthForm';
 
 const INITIAL_DIALOG: AkDialogState = {
   isOpen: false,
@@ -310,6 +320,34 @@ export default function App() {
     qrisModalOpen,
   ]);
 
+  const formatAuthError = (err: unknown): string => {
+    const code =
+      typeof err === 'object' && err !== null && 'code' in err ? String((err as { code: unknown }).code) : '';
+    const msg = err instanceof Error ? err.message : String(err);
+    if (code === 'auth/operation-not-allowed') {
+      return 'Login Email/Password belum diaktifkan di Firebase Console.\nBuka Firebase Console (project hardy-smithy-xpd8p) → Authentication → Sign-in method → aktifkan "Email/Password".';
+    }
+    if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+      return 'Email atau password salah, atau akun belum terdaftar.';
+    }
+    if (code === 'auth/email-already-in-use') {
+      return 'Email ini sudah terdaftar. Silakan masuk lewat tab "MASUK EMAIL".';
+    }
+    if (code === 'auth/weak-password') {
+      return 'Password terlalu lemah. Gunakan minimal 6 karakter.';
+    }
+    if (code === 'auth/invalid-email') {
+      return 'Format alamat email tidak valid.';
+    }
+    if (code === 'auth/too-many-requests') {
+      return 'Terlalu banyak percobaan login. Tunggu beberapa menit lalu coba lagi.';
+    }
+    if (code === 'auth/unauthorized-domain') {
+      return 'Domain situs ini belum didaftarkan di Firebase Console → Authentication → Settings → Authorized domains.';
+    }
+    return msg.slice(0, 260);
+  };
+
   // Auth actions
   const handleGoogleLogin = async () => {
     setAuthBusy(true);
@@ -319,8 +357,55 @@ export default function App() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (!msg.includes('popup-closed-by-user')) {
-        reportError(err, 'Login Google');
+        showAlert('Gagal Login Google', formatAuthError(err));
       }
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleEmailLogin = async (email: string, password: string) => {
+    setAuthBusy(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      setAuthSyncModalOpen(false);
+    } catch (err) {
+      showAlert('Gagal Masuk Email', formatAuthError(err));
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleEmailRegister = async (email: string, password: string, displayName: string) => {
+    setAuthBusy(true);
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      const safeName = (displayName || email.split('@')[0] || 'Operator').trim().slice(0, 80);
+      if (safeName) {
+        await updateProfile(cred.user, { displayName: safeName }).catch(() => {});
+      }
+      setAuthSyncModalOpen(false);
+    } catch (err) {
+      showAlert('Gagal Daftar Akun', formatAuthError(err));
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleResetPassword = async (email: string) => {
+    if (!email) {
+      showAlert('Masukkan Email', 'Isi alamat email Anda terlebih dahulu sebelum klik "Lupa password?".');
+      return;
+    }
+    setAuthBusy(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      showAlert(
+        'Email Reset Terkirim',
+        `Link reset password telah dikirim ke ${email}. Periksa kotak masuk atau folder spam Anda.`
+      );
+    } catch (err) {
+      showAlert('Gagal Reset Password', formatAuthError(err));
     } finally {
       setAuthBusy(false);
     }
@@ -747,18 +832,18 @@ export default function App() {
   // 2. Firebase Login Gateway (when signed out & not in offline mode)
   if (!user && !offlineMode) {
     return (
-      <div className="min-h-[100dvh] bg-[#0a0c0f] ak-grid-bg relative flex items-center justify-center p-4 overflow-hidden">
+      <div className="min-h-[100dvh] bg-[#0a0c0f] ak-grid-bg relative flex items-center justify-center p-4 overflow-y-auto">
         <div className="ak-scanline" />
-        <div className="relative z-10 w-full max-w-md ak-cut bg-[#12151a]/95 border border-orange-500/50 shadow-2xl overflow-hidden">
+        <div className="relative z-10 w-full max-w-md ak-cut bg-[#12151a]/95 border border-orange-500/50 shadow-2xl overflow-hidden my-4">
           <div className="ak-hazard-strip" />
-          <div className="p-6 sm:p-8 text-center space-y-5">
+          <div className="p-6 sm:p-7 text-center space-y-4">
             <div className="font-mono-tech text-[10px] tracking-[0.22em] text-orange-400 uppercase">
               // ZEROTH RECRUITMENT NETWORK // CLOUD SYNC
             </div>
 
             <div className="flex justify-center">
               <div className="orb-wrap">
-                <div className="orb !w-36 !h-36" />
+                <div className="orb !w-28 !h-28" />
               </div>
             </div>
 
@@ -766,12 +851,28 @@ export default function App() {
               <h1 className="text-2xl sm:text-3xl font-bold tracking-widest text-white uppercase">
                 GACHA AKID MALANG
               </h1>
-              <p className="text-xs text-neutral-400 mt-1.5 leading-relaxed">
-                Login dengan Google untuk menyinkronkan semua data <span className="text-neutral-200">Player, Pity, Stok, Rates, Harga, & Riwayat Pull</span> secara real-time di semua perangkat.
+              <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
+                Masuk dengan <span className="text-neutral-200">Email</span> atau{' '}
+                <span className="text-neutral-200">Google</span> untuk menyinkronkan semua data{' '}
+                <span className="text-neutral-200">Player, Pity, Stok, Rates, Harga, & Riwayat Pull</span> secara
+                real-time.
               </p>
             </div>
 
-            <div className="space-y-2.5 pt-1">
+            <EmailAuthForm
+              busy={authBusy}
+              onEmailLogin={handleEmailLogin}
+              onEmailRegister={handleEmailRegister}
+              onResetPassword={handleResetPassword}
+            />
+
+            <div className="flex items-center gap-2 text-[10px] font-mono-tech text-neutral-500">
+              <div className="h-px bg-neutral-800 flex-1" />
+              <span>ATAU</span>
+              <div className="h-px bg-neutral-800 flex-1" />
+            </div>
+
+            <div className="space-y-2">
               <button
                 type="button"
                 disabled={authBusy}
@@ -779,10 +880,10 @@ export default function App() {
                   sfxPlay('click');
                   void handleGoogleLogin();
                 }}
-                className="btn-press shimmer w-full py-3.5 px-5 bg-orange-500 hover:bg-orange-400 disabled:opacity-50 text-neutral-950 font-bold text-sm tracking-widest ak-cut flex items-center justify-center gap-2.5 shadow-lg shadow-orange-500/20"
+                className="btn-press w-full py-2.5 px-4 bg-[#1b2029] hover:bg-[#252c38] border border-cyan-400/50 disabled:opacity-50 text-cyan-300 font-bold text-xs tracking-widest flex items-center justify-center gap-2"
               >
                 <LogIn className="w-4 h-4" />
-                <span>{authBusy ? 'MENGHUBUNGKAN...' : 'LOGIN DENGAN GOOGLE (SYNC CLOUD)'}</span>
+                <span>{authBusy ? 'MENGHUBUNGKAN...' : 'LOGIN DENGAN GOOGLE'}</span>
               </button>
 
               <button
@@ -791,7 +892,7 @@ export default function App() {
                   sfxPlay('click');
                   setOfflineMode(true);
                 }}
-                className="btn-press w-full py-2.5 px-4 bg-[#181c22] hover:bg-[#222831] border border-neutral-700 text-neutral-300 font-bold text-xs tracking-wider flex items-center justify-center gap-2"
+                className="btn-press w-full py-2 px-4 bg-[#181c22] hover:bg-[#222831] border border-neutral-700 text-neutral-300 font-bold text-xs tracking-wider flex items-center justify-center gap-2"
               >
                 <CloudOff className="w-3.5 h-3.5 text-neutral-400" />
                 <span>LANJUT MODE OFFLINE (LOKAL)</span>
@@ -1252,6 +1353,9 @@ export default function App() {
         importing={importing}
         authBusy={authBusy}
         onGoogleLogin={() => void handleGoogleLogin()}
+        onEmailLogin={handleEmailLogin}
+        onEmailRegister={handleEmailRegister}
+        onResetPassword={handleResetPassword}
         onSignOut={() => void handleSignOut()}
         onImportLocalToCloud={() => void handleImportLocalToCloud()}
         onClose={() => setAuthSyncModalOpen(false)}

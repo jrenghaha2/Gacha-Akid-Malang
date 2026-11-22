@@ -1,9 +1,11 @@
-import { initializeApp } from 'firebase/app';
+import { getApps, initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { doc, getDocFromServer, getFirestore } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
-const app = initializeApp(firebaseConfig);
+const APP_INSTANCE_NAME = 'gacha-akid-malang';
+const existingApp = getApps().find((a) => a.name === APP_INSTANCE_NAME);
+const app = existingApp ?? initializeApp(firebaseConfig, APP_INSTANCE_NAME);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();

@@ -2,6 +2,7 @@ import React from 'react';
 import { User } from 'firebase/auth';
 import { Cloud, CloudOff, LogIn, LogOut, Upload } from 'lucide-react';
 import { sfxPlay } from '../../utils/sfx';
+import { EmailAuthForm } from '../EmailAuthForm';
 
 interface AuthSyncModalProps {
   isOpen: boolean;
@@ -10,6 +11,9 @@ interface AuthSyncModalProps {
   importing: boolean;
   authBusy: boolean;
   onGoogleLogin: () => void;
+  onEmailLogin: (email: string, password: string) => Promise<void>;
+  onEmailRegister: (email: string, password: string, displayName: string) => Promise<void>;
+  onResetPassword: (email: string) => Promise<void>;
   onSignOut: () => void;
   onImportLocalToCloud: () => void;
   onClose: () => void;
@@ -22,6 +26,9 @@ export const AuthSyncModal: React.FC<AuthSyncModalProps> = ({
   importing,
   authBusy,
   onGoogleLogin,
+  onEmailLogin,
+  onEmailRegister,
+  onResetPassword,
   onSignOut,
   onImportLocalToCloud,
   onClose,
@@ -35,7 +42,7 @@ export const AuthSyncModal: React.FC<AuthSyncModalProps> = ({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="modal-enter ak-cut bg-[#12151a] border border-cyan-400/50 w-full max-w-md overflow-hidden shadow-2xl">
+      <div className="modal-enter ak-cut bg-[#12151a] border border-cyan-400/50 w-full max-w-md max-h-[92dvh] overflow-y-auto scroll-area shadow-2xl">
         <div className="h-1 w-full bg-gradient-to-r from-orange-500 via-cyan-400 to-orange-500" />
         <div className="p-5 space-y-4">
           <div className="flex items-center justify-between">
@@ -83,7 +90,7 @@ export const AuthSyncModal: React.FC<AuthSyncModalProps> = ({
               </div>
 
               <div className="text-xs text-neutral-400 leading-relaxed bg-[#0e1116] p-3 border border-neutral-800">
-                Semua data <span className="text-neutral-200 font-bold">Player, Pity, Stok, Rates, Harga, History, & Setting BG</span> tersimpan otomatis ke Cloud Firestore dan langsung sinkron di perangkat lain yang login dengan akun Google yang sama.
+                Semua data <span className="text-neutral-200 font-bold">Player, Pity, Stok, Rates, Harga, History, & Setting BG</span> tersimpan otomatis ke Cloud Firestore dan langsung sinkron di perangkat lain yang login dengan akun yang sama.
               </div>
 
               {hasImportableLocal && (
@@ -124,16 +131,29 @@ export const AuthSyncModal: React.FC<AuthSyncModalProps> = ({
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="p-3.5 bg-[#181c23] border border-amber-500/35 rounded-sm flex items-center gap-3">
-                <div className="w-10 h-10 bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
-                  <CloudOff className="w-5 h-5" />
+              <div className="p-3 bg-[#181c23] border border-amber-500/35 rounded-sm flex items-center gap-3">
+                <div className="w-9 h-9 bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+                  <CloudOff className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-sm font-bold text-amber-300">MODE OFFLINE (LOKAL)</div>
+                  <div className="text-xs font-bold text-amber-300">MODE OFFLINE (LOKAL)</div>
                   <div className="text-[11px] text-neutral-400">
-                    Data hanya tersimpan di browser ini dan belum tersinkron ke Cloud.
+                    Login dengan Email atau Google agar semua data sinkron ke Cloud.
                   </div>
                 </div>
+              </div>
+
+              <EmailAuthForm
+                busy={authBusy}
+                onEmailLogin={onEmailLogin}
+                onEmailRegister={onEmailRegister}
+                onResetPassword={onResetPassword}
+              />
+
+              <div className="flex items-center gap-2 text-[10px] font-mono-tech text-neutral-500">
+                <div className="h-px bg-neutral-800 flex-1" />
+                <span>ATAU</span>
+                <div className="h-px bg-neutral-800 flex-1" />
               </div>
 
               <button
@@ -143,10 +163,10 @@ export const AuthSyncModal: React.FC<AuthSyncModalProps> = ({
                   sfxPlay('click');
                   onGoogleLogin();
                 }}
-                className="btn-press w-full py-3 bg-orange-500 hover:bg-orange-400 disabled:opacity-50 text-neutral-950 text-xs font-bold tracking-wider flex items-center justify-center gap-2"
+                className="btn-press w-full py-2.5 bg-[#1b2029] hover:bg-[#252c38] border border-cyan-400/50 disabled:opacity-50 text-cyan-300 text-xs font-bold tracking-wider flex items-center justify-center gap-2"
               >
                 <LogIn className="w-4 h-4" />
-                <span>{authBusy ? 'MENGHUBUNGKAN...' : 'LOGIN DENGAN GOOGLE (SYNC CLOUD)'}</span>
+                <span>{authBusy ? 'MENGHUBUNGKAN...' : 'LOGIN DENGAN GOOGLE'}</span>
               </button>
             </div>
           )}
