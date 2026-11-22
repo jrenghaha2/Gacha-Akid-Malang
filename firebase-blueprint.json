@@ -1,0 +1,309 @@
+{
+  "entities": {
+    "UserWorkspace": {
+      "title": "UserWorkspace",
+      "description": "Root workspace document owned by an authenticated Firebase user, acting as the Master Gate for all synced Gacha AKID Malang subcollections.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the workspace owner (immutable)."
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Display name of the operator."
+        },
+        "activePlayerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]*$",
+          "description": "Currently selected player document ID."
+        },
+        "sfxEnabled": {
+          "type": "boolean",
+          "description": "Whether Web Audio SFX is enabled across synced devices."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the workspace was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the workspace was last updated."
+        }
+      },
+      "required": ["ownerId", "displayName", "activePlayerId", "sfxEnabled", "createdAt", "updatedAt"]
+    },
+    "GachaConfig": {
+      "title": "GachaConfig",
+      "description": "Synced gacha configuration including tier drop rates, pity thresholds, pricing, bundles, and background visual settings.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Workspace owner UID (immutable)."
+        },
+        "configVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "Schema version tag for configuration."
+        },
+        "rates": {
+          "type": "object",
+          "description": "Drop rate map for LEGENDARY, EPIC, SR, RARE, UNCOMMON, COMMON (sum equals 1.0)."
+        },
+        "pity": {
+          "type": "object",
+          "description": "Pity threshold map for UNCOMMON, RARE, SR, EPIC, LEGENDARY (0 disables pity)."
+        },
+        "singlePrice": {
+          "type": "number",
+          "description": "Single pull price in IDR (>= 0)."
+        },
+        "bundles": {
+          "type": "array",
+          "description": "Bounded list (max 20) of pricing bundles with qty and price."
+        },
+        "bgBlur": {
+          "type": "number",
+          "description": "Background blur intensity in pixels (0-30)."
+        },
+        "bgDim": {
+          "type": "number",
+          "description": "Background dark overlay percentage (0-90)."
+        },
+        "bgUrl": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Optional external image URL for synced background."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last update timestamp."
+        }
+      },
+      "required": ["ownerId", "configVersion", "rates", "pity", "singlePrice", "bundles", "bgBlur", "bgDim", "bgUrl", "createdAt", "updatedAt"]
+    },
+    "GachaItem": {
+      "title": "GachaItem",
+      "description": "A gacha reward item with its assigned rarity tier and real-time remaining stock.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Workspace owner UID (immutable)."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Item display name."
+        },
+        "tier": {
+          "type": "string",
+          "enum": ["LEGENDARY", "EPIC", "SR", "RARE", "UNCOMMON", "COMMON"],
+          "description": "Rarity tier of the item."
+        },
+        "stock": {
+          "type": "number",
+          "description": "Remaining stock quantity (integer 0 to 1000000)."
+        },
+        "sortOrder": {
+          "type": "number",
+          "description": "Sort index within the tier."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": ["ownerId", "name", "tier", "stock", "sortOrder", "createdAt", "updatedAt"]
+    },
+    "GachaPlayer": {
+      "title": "GachaPlayer",
+      "description": "A registered gacha player profile tracking pity counters, total pulls, total spending, and tier distribution.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Workspace owner UID (immutable)."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Player display name."
+        },
+        "uncPity": {
+          "type": "number",
+          "description": "Current Uncommon pity counter."
+        },
+        "rPity": {
+          "type": "number",
+          "description": "Current Rare pity counter."
+        },
+        "srPity": {
+          "type": "number",
+          "description": "Current Super Rare pity counter."
+        },
+        "epicPity": {
+          "type": "number",
+          "description": "Current Epic pity counter."
+        },
+        "legPity": {
+          "type": "number",
+          "description": "Current Legendary pity counter."
+        },
+        "totalPulls": {
+          "type": "number",
+          "description": "Cumulative number of pulls executed."
+        },
+        "totalSpending": {
+          "type": "number",
+          "description": "Cumulative spending in IDR."
+        },
+        "tierCounts": {
+          "type": "object",
+          "description": "Aggregated counts of obtained items per rarity tier."
+        },
+        "lastPullAt": {
+          "type": "number",
+          "description": "Epoch millisecond timestamp of last pull (0 if never pulled)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": ["ownerId", "name", "uncPity", "rPity", "srPity", "epicPity", "legPity", "totalPulls", "totalSpending", "tierCounts", "lastPullAt", "createdAt", "updatedAt"]
+    },
+    "HistoryEntry": {
+      "title": "HistoryEntry",
+      "description": "Immutable pull history record linked to a player and workspace.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Workspace owner UID (immutable)."
+        },
+        "playerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Referenced player document ID."
+        },
+        "playerName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Snapshot of player name at time of pull."
+        },
+        "itemName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Obtained reward item name."
+        },
+        "rarity": {
+          "type": "string",
+          "enum": ["LEGENDARY", "EPIC", "SR", "RARE", "UNCOMMON", "COMMON"],
+          "description": "Rarity tier of the obtained item."
+        },
+        "isPity": {
+          "type": "boolean",
+          "description": "Whether this pull was guaranteed by pity."
+        },
+        "timeMs": {
+          "type": "number",
+          "description": "Client display epoch ms timestamp for filtering and sorting."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        }
+      },
+      "required": ["ownerId", "playerId", "playerName", "itemName", "rarity", "isPity", "timeMs", "createdAt"]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Trusted server-managed admin registry (read-only by own UID, immutable from client).",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Admin user UID."
+        }
+      },
+      "required": ["uid"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserWorkspace" },
+      "description": "Root workspace document per authenticated Firebase user."
+    },
+    "/users/{userId}/configs/{configId}": {
+      "schema": { "$ref": "#/entities/GachaConfig" },
+      "description": "Synced gacha configuration (rates, pity, pricing, bundles, background settings)."
+    },
+    "/users/{userId}/items/{itemId}": {
+      "schema": { "$ref": "#/entities/GachaItem" },
+      "description": "Synced gacha reward items and stock quantities."
+    },
+    "/users/{userId}/players/{playerId}": {
+      "schema": { "$ref": "#/entities/GachaPlayer" },
+      "description": "Synced player profiles, pity counters, and spending aggregates."
+    },
+    "/users/{userId}/history/{entryId}": {
+      "schema": { "$ref": "#/entities/HistoryEntry" },
+      "description": "Immutable pull history entries for global history and analytics."
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Read-only admin registry managed out-of-band."
+    }
+  }
+}

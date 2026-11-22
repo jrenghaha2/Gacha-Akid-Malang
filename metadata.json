@@ -1,0 +1,6 @@
+{
+  "name": "GACHA AKID MALANG",
+  "description": "Terminal Rekrutmen Gacha AKID Malang dengan login Firebase dan sinkronisasi real-time untuk pity, stok, harga bundling, statistik, dan riwayat pull.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

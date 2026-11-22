@@ -1,0 +1,359 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ==================== GLOBAL PRIMITIVES ====================
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidOptionalId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]*$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isVerifiedOwner(userId) {
+      return isEmailVerified() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isEmailVerified() && (
+        request.auth.token.email == 'ZiednaB@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function hasValidTier(tier) {
+      return tier is string && tier in ['LEGENDARY', 'EPIC', 'SR', 'RARE', 'UNCOMMON', 'COMMON'];
+    }
+
+    function isNonNegNumber(val) {
+      return (val is int || val is float) && val >= 0;
+    }
+
+    function isNonNegInt(val) {
+      return val is int && val >= 0;
+    }
+
+    function hasValidRatesMap(rates) {
+      return rates is map
+        && rates.keys().hasAll(['LEGENDARY', 'EPIC', 'SR', 'RARE', 'UNCOMMON', 'COMMON'])
+        && rates.keys().hasOnly(['LEGENDARY', 'EPIC', 'SR', 'RARE', 'UNCOMMON', 'COMMON'])
+        && isNonNegNumber(rates.LEGENDARY) && rates.LEGENDARY <= 1
+        && isNonNegNumber(rates.EPIC) && rates.EPIC <= 1
+        && isNonNegNumber(rates.SR) && rates.SR <= 1
+        && isNonNegNumber(rates.RARE) && rates.RARE <= 1
+        && isNonNegNumber(rates.UNCOMMON) && rates.UNCOMMON <= 1
+        && isNonNegNumber(rates.COMMON) && rates.COMMON <= 1;
+    }
+
+    function hasValidPityMap(pity) {
+      return pity is map
+        && pity.keys().hasAll(['UNCOMMON', 'RARE', 'SR', 'EPIC', 'LEGENDARY'])
+        && pity.keys().hasOnly(['UNCOMMON', 'RARE', 'SR', 'EPIC', 'LEGENDARY'])
+        && isNonNegInt(pity.UNCOMMON) && pity.UNCOMMON <= 10000
+        && isNonNegInt(pity.RARE) && pity.RARE <= 10000
+        && isNonNegInt(pity.SR) && pity.SR <= 10000
+        && isNonNegInt(pity.EPIC) && pity.EPIC <= 10000
+        && isNonNegInt(pity.LEGENDARY) && pity.LEGENDARY <= 10000;
+    }
+
+    function hasValidTierCountsMap(tc) {
+      return tc is map
+        && tc.keys().hasAll(['LEGENDARY', 'EPIC', 'SR', 'RARE', 'UNCOMMON', 'COMMON'])
+        && tc.keys().hasOnly(['LEGENDARY', 'EPIC', 'SR', 'RARE', 'UNCOMMON', 'COMMON'])
+        && isNonNegInt(tc.LEGENDARY)
+        && isNonNegInt(tc.EPIC)
+        && isNonNegInt(tc.SR)
+        && isNonNegInt(tc.RARE)
+        && isNonNegInt(tc.UNCOMMON)
+        && isNonNegInt(tc.COMMON);
+    }
+
+    function hasValidBundles(bundles) {
+      return bundles is list
+        && bundles.size() <= 20
+        && (
+          bundles.size() == 0 || (
+            bundles[0] is map
+            && bundles[0].keys().hasAll(['qty', 'price'])
+            && bundles[0].keys().hasOnly(['qty', 'price'])
+            && bundles[0].qty is int && bundles[0].qty >= 2 && bundles[0].qty <= 10000
+            && isNonNegInt(bundles[0].price) && bundles[0].price <= 1000000000
+          )
+        );
+    }
+
+    // ==================== ENTITY VALIDATION BLUEPRINTS ====================
+    function isValidUserWorkspace(data, userId) {
+      return data.keys().hasAll(['ownerId', 'displayName', 'activePlayerId', 'sfxEnabled', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'displayName', 'activePlayerId', 'sfxEnabled', 'createdAt', 'updatedAt'])
+        && data.ownerId is string && data.ownerId == userId && data.ownerId == request.auth.uid
+        && isValidId(data.ownerId)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100
+        && isValidOptionalId(data.activePlayerId)
+        && data.sfxEnabled is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidGachaConfig(data, userId) {
+      return data.keys().hasAll(['ownerId', 'configVersion', 'rates', 'pity', 'singlePrice', 'bundles', 'bgBlur', 'bgDim', 'bgUrl', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'configVersion', 'rates', 'pity', 'singlePrice', 'bundles', 'bgBlur', 'bgDim', 'bgUrl', 'createdAt', 'updatedAt'])
+        && data.ownerId is string && data.ownerId == userId && data.ownerId == request.auth.uid
+        && isValidId(data.ownerId)
+        && data.configVersion is string && data.configVersion.size() >= 1 && data.configVersion.size() <= 64
+        && hasValidRatesMap(data.rates)
+        && hasValidPityMap(data.pity)
+        && isNonNegInt(data.singlePrice) && data.singlePrice <= 100000000
+        && hasValidBundles(data.bundles)
+        && isNonNegInt(data.bgBlur) && data.bgBlur <= 30
+        && isNonNegInt(data.bgDim) && data.bgDim <= 90
+        && data.bgUrl is string && data.bgUrl.size() <= 500
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidGachaItem(data, userId) {
+      return data.keys().hasAll(['ownerId', 'name', 'tier', 'stock', 'sortOrder', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'name', 'tier', 'stock', 'sortOrder', 'createdAt', 'updatedAt'])
+        && data.ownerId is string && data.ownerId == userId && data.ownerId == request.auth.uid
+        && isValidId(data.ownerId)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 100
+        && hasValidTier(data.tier)
+        && isNonNegInt(data.stock) && data.stock <= 1000000
+        && isNonNegInt(data.sortOrder) && data.sortOrder <= 100000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidGachaPlayer(data, userId) {
+      return data.keys().hasAll(['ownerId', 'name', 'uncPity', 'rPity', 'srPity', 'epicPity', 'legPity', 'totalPulls', 'totalSpending', 'tierCounts', 'lastPullAt', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'name', 'uncPity', 'rPity', 'srPity', 'epicPity', 'legPity', 'totalPulls', 'totalSpending', 'tierCounts', 'lastPullAt', 'createdAt', 'updatedAt'])
+        && data.ownerId is string && data.ownerId == userId && data.ownerId == request.auth.uid
+        && isValidId(data.ownerId)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 80
+        && isNonNegInt(data.uncPity) && data.uncPity <= 1000000
+        && isNonNegInt(data.rPity) && data.rPity <= 1000000
+        && isNonNegInt(data.srPity) && data.srPity <= 1000000
+        && isNonNegInt(data.epicPity) && data.epicPity <= 1000000
+        && isNonNegInt(data.legPity) && data.legPity <= 1000000
+        && isNonNegInt(data.totalPulls) && data.totalPulls <= 10000000
+        && isNonNegInt(data.totalSpending) && data.totalSpending <= 1000000000000
+        && hasValidTierCountsMap(data.tierCounts)
+        && isNonNegInt(data.lastPullAt)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidHistoryEntry(data, userId) {
+      return data.keys().hasAll(['ownerId', 'playerId', 'playerName', 'itemName', 'rarity', 'isPity', 'timeMs', 'createdAt'])
+        && data.keys().hasOnly(['ownerId', 'playerId', 'playerName', 'itemName', 'rarity', 'isPity', 'timeMs', 'createdAt'])
+        && data.ownerId is string && data.ownerId == userId && data.ownerId == request.auth.uid
+        && isValidId(data.ownerId)
+        && isValidId(data.playerId)
+        && data.playerName is string && data.playerName.size() >= 1 && data.playerName.size() <= 80
+        && data.itemName is string && data.itemName.size() >= 1 && data.itemName.size() <= 100
+        && hasValidTier(data.rarity)
+        && data.isPity is bool
+        && isNonNegInt(data.timeMs)
+        && data.createdAt is timestamp;
+    }
+
+    // ==================== ADMINS COLLECTION ====================
+    match /admins/{adminId} {
+      allow get: if isEmailVerified() && isValidId(adminId) && request.auth.uid == adminId;
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    // ==================== USER WORKSPACE (MASTER GATE) ====================
+    match /users/{userId} {
+      allow get: if isVerifiedOwner(userId) && isValidId(userId);
+      allow list: if false;
+
+      allow create: if isVerifiedOwner(userId)
+        && isValidId(userId)
+        && isValidUserWorkspace(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedOwner(userId)
+        && isValidId(userId)
+        && isValidUserWorkspace(incoming(), userId)
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || incoming().diff(existing()).affectedKeys().hasOnly(['activePlayerId', 'updatedAt'])
+          || incoming().diff(existing()).affectedKeys().hasOnly(['sfxEnabled', 'updatedAt'])
+          || incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'updatedAt'])
+          || incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'activePlayerId', 'sfxEnabled', 'updatedAt'])
+        );
+
+      allow delete: if isVerifiedOwner(userId) && isValidId(userId);
+
+      // -------------------- GACHA CONFIG --------------------
+      match /configs/{configId} {
+        allow get: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(configId)
+          && exists(/databases/$(database)/documents/users/$(userId));
+
+        allow list: if isVerifiedOwner(userId) && resource.data.ownerId == request.auth.uid;
+
+        allow create: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && configId == 'main'
+          && isValidGachaConfig(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && existsAfter(/databases/$(database)/documents/users/$(userId));
+
+        allow update: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && configId == 'main'
+          && isValidGachaConfig(incoming(), userId)
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && (
+            isAdmin()
+            || incoming().diff(existing()).affectedKeys().hasOnly(['rates', 'updatedAt'])
+            || incoming().diff(existing()).affectedKeys().hasOnly(['pity', 'updatedAt'])
+            || incoming().diff(existing()).affectedKeys().hasOnly(['singlePrice', 'bundles', 'updatedAt'])
+            || incoming().diff(existing()).affectedKeys().hasOnly(['bgBlur', 'bgDim', 'bgUrl', 'updatedAt'])
+            || incoming().diff(existing()).affectedKeys().hasOnly(['configVersion', 'rates', 'pity', 'singlePrice', 'bundles', 'bgBlur', 'bgDim', 'bgUrl', 'updatedAt'])
+          );
+
+        allow delete: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(configId)
+          && exists(/databases/$(database)/documents/users/$(userId));
+      }
+
+      // -------------------- GACHA ITEMS & STOCK --------------------
+      match /items/{itemId} {
+        allow get: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(itemId)
+          && exists(/databases/$(database)/documents/users/$(userId));
+
+        allow list: if isVerifiedOwner(userId) && resource.data.ownerId == request.auth.uid;
+
+        allow create: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(itemId)
+          && isValidGachaItem(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && existsAfter(/databases/$(database)/documents/users/$(userId));
+
+        allow update: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(itemId)
+          && isValidGachaItem(incoming(), userId)
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && (
+            isAdmin()
+            || incoming().diff(existing()).affectedKeys().hasOnly(['stock', 'updatedAt'])
+            || incoming().diff(existing()).affectedKeys().hasOnly(['name', 'tier', 'stock', 'sortOrder', 'updatedAt'])
+          );
+
+        allow delete: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(itemId)
+          && exists(/databases/$(database)/documents/users/$(userId));
+      }
+
+      // -------------------- GACHA PLAYERS --------------------
+      match /players/{playerId} {
+        allow get: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(playerId)
+          && exists(/databases/$(database)/documents/users/$(userId));
+
+        allow list: if isVerifiedOwner(userId) && resource.data.ownerId == request.auth.uid;
+
+        allow create: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(playerId)
+          && isValidGachaPlayer(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && existsAfter(/databases/$(database)/documents/users/$(userId));
+
+        allow update: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(playerId)
+          && isValidGachaPlayer(incoming(), userId)
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && (
+            isAdmin()
+            || incoming().diff(existing()).affectedKeys().hasOnly(['uncPity', 'rPity', 'srPity', 'epicPity', 'legPity', 'totalPulls', 'totalSpending', 'tierCounts', 'lastPullAt', 'updatedAt'])
+            || incoming().diff(existing()).affectedKeys().hasOnly(['tierCounts', 'updatedAt'])
+            || incoming().diff(existing()).affectedKeys().hasOnly(['name', 'updatedAt'])
+          );
+
+        allow delete: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(playerId)
+          && exists(/databases/$(database)/documents/users/$(userId));
+      }
+
+      // -------------------- PULL HISTORY (IMMUTABLE) --------------------
+      match /history/{entryId} {
+        allow get: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(entryId)
+          && exists(/databases/$(database)/documents/users/$(userId));
+
+        allow list: if isVerifiedOwner(userId) && resource.data.ownerId == request.auth.uid;
+
+        allow create: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(entryId)
+          && isValidHistoryEntry(incoming(), userId)
+          && incoming().createdAt == request.time
+          && existsAfter(/databases/$(database)/documents/users/$(userId))
+          && existsAfter(/databases/$(database)/documents/users/$(userId)/players/$(incoming().playerId));
+
+        allow update: if false;
+
+        allow delete: if isVerifiedOwner(userId)
+          && isValidId(userId)
+          && isValidId(entryId)
+          && exists(/databases/$(database)/documents/users/$(userId));
+      }
+    }
+  }
+}
