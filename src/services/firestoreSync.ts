@@ -119,6 +119,7 @@ export async function ensureUserWorkspace(uid: string, displayName: string): Pro
     bgBlur: DEFAULT_CONFIG.bgBlur,
     bgDim: DEFAULT_CONFIG.bgDim,
     bgUrl: '',
+    qrUrl: '',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -219,6 +220,7 @@ export function subscribeWorkspace(uid: string, handlers: WorkspaceSubscriptionH
           bgBlur: clampInt(d.bgBlur ?? DEFAULT_CONFIG.bgBlur, 0, 30),
           bgDim: clampInt(d.bgDim ?? DEFAULT_CONFIG.bgDim, 0, 90),
           bgUrl: typeof d.bgUrl === 'string' ? d.bgUrl.slice(0, 500) : '',
+          qrUrl: typeof d.qrUrl === 'string' ? d.qrUrl.slice(0, 500) : '',
         });
       },
       wrapErr(OperationType.GET, `users/${uid}/configs/main`)
@@ -369,6 +371,18 @@ export async function updateCloudBgSettings(uid: string, bgBlur: number, bgDim: 
       bgBlur: clampInt(bgBlur, 0, 30),
       bgDim: clampInt(bgDim, 0, 90),
       bgUrl: (bgUrl || '').trim().slice(0, 500),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+export async function updateCloudQrUrl(uid: string, qrUrl: string): Promise<void> {
+  const path = `users/${uid}/configs/main`;
+  try {
+    await updateDoc(doc(db, 'users', uid, 'configs', 'main'), {
+      qrUrl: (qrUrl || '').trim().slice(0, 500),
       updatedAt: serverTimestamp(),
     });
   } catch (error) {
@@ -698,6 +712,7 @@ export async function resetCloudEntireWorkspace(
       bgBlur: DEFAULT_CONFIG.bgBlur,
       bgDim: DEFAULT_CONFIG.bgDim,
       bgUrl: '',
+      qrUrl: '',
       updatedAt: serverTimestamp(),
     });
 
@@ -779,6 +794,7 @@ export async function importLocalSnapshotToCloud(
       bgBlur: clampInt(localData.config.bgBlur, 0, 30),
       bgDim: clampInt(localData.config.bgDim, 0, 90),
       bgUrl: (localData.config.bgUrl || '').slice(0, 500),
+      qrUrl: (localData.config.qrUrl || '').slice(0, 500),
       updatedAt: serverTimestamp(),
     });
 

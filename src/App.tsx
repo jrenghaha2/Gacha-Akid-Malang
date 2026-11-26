@@ -55,6 +55,7 @@ import {
   updateCloudBgSettings,
   updateCloudPity,
   updateCloudPricing,
+  updateCloudQrUrl,
   updateCloudRates,
   updateWorkspaceActivePlayer,
   updateWorkspaceSfx,
@@ -62,10 +63,12 @@ import {
 import {
   createDefaultLocalState,
   loadLocalBgDataUrl,
+  loadLocalQrDataUrl,
   loadLocalState,
   LocalWorkspaceState,
   readImportableLocalData,
   saveLocalBgDataUrl,
+  saveLocalQrDataUrl,
   saveLocalState,
 } from './services/localStorageSync';
 import { PullOverlay } from './components/PullOverlay';
@@ -116,6 +119,7 @@ export default function App() {
   // Local Offline State
   const [localState, setLocalState] = useState<LocalWorkspaceState>(() => loadLocalState());
   const [localBgDataUrl, setLocalBgDataUrl] = useState<string>(() => loadLocalBgDataUrl());
+  const [localQrDataUrl, setLocalQrDataUrl] = useState<string>(() => loadLocalQrDataUrl());
 
   // Custom Pull Input
   const [customPullQty, setCustomPullQty] = useState<string>('10');
@@ -649,6 +653,23 @@ export default function App() {
     saveLocalBgDataUrl(dataUrl);
   };
 
+  const handleSaveQrUrl = async (qrUrl: string) => {
+    if (user) {
+      try {
+        await updateCloudQrUrl(user.uid, qrUrl);
+      } catch (err) {
+        reportError(err, 'Simpan Kode QR');
+      }
+    } else {
+      setLocalState((prev) => ({ ...prev, config: { ...prev.config, qrUrl } }));
+    }
+  };
+
+  const handleSetLocalQr = (dataUrl: string) => {
+    setLocalQrDataUrl(dataUrl);
+    saveLocalQrDataUrl(dataUrl);
+  };
+
   const handleResetHistoryOnly = async () => {
     if (user) {
       try {
@@ -672,6 +693,7 @@ export default function App() {
       try {
         await resetCloudEntireWorkspace(user.uid, items, players, history);
         handleSetLocalBg('');
+        handleSetLocalQr('');
         showAlert('Reset Total Selesai', 'Seluruh data Cloud berhasil dikembalikan ke pengaturan default.');
       } catch (err) {
         reportError(err, 'Reset Total');
@@ -679,6 +701,7 @@ export default function App() {
     } else {
       setLocalState(createDefaultLocalState());
       handleSetLocalBg('');
+      handleSetLocalQr('');
       showAlert('Reset Total Selesai', 'Seluruh data lokal berhasil dikembalikan ke pengaturan default.');
     }
   };
@@ -813,8 +836,11 @@ export default function App() {
     }
   };
 
-  // Active background URL (local uploaded file takes precedence on this device, else synced cloud bgUrl)
+  // Active background & QR URLs (local uploaded file takes precedence on this device, else synced cloud URL)
   const effectiveBgUrl = sanitizeImageUrl(localBgDataUrl) || sanitizeImageUrl(config.bgUrl || '');
+  const defaultQrUrl = `${import.meta.env.BASE_URL}qris-code.png`;
+  const effectiveQrUrl = sanitizeImageUrl(localQrDataUrl) || sanitizeImageUrl(config.qrUrl || '') || defaultQrUrl;
+  const isDefaultQr = !sanitizeImageUrl(localQrDataUrl) && !sanitizeImageUrl(config.qrUrl || '');
 
   // 1. Auth Loading Screen
   if (!authReady || (isCloudMode && cloudLoading && !cloudWorkspace)) {
@@ -1321,7 +1347,12 @@ export default function App() {
         onClose={() => setHistoryModalOpen(false)}
       />
 
-      <QrisModal isOpen={qrisModalOpen} onClose={() => setQrisModalOpen(false)} />
+      <QrisModal
+        isOpen={qrisModalOpen}
+        qrImageSrc={effectiveQrUrl}
+        isDefaultQr={isDefaultQr}
+        onClose={() => setQrisModalOpen(false)}
+      />
 
       <AdminModal
         isOpen={adminModalOpen}
@@ -1330,12 +1361,15 @@ export default function App() {
         players={players}
         history={history}
         localBgDataUrl={localBgDataUrl}
+        localQrDataUrl={localQrDataUrl}
         isCloudMode={isCloudMode}
         onSaveRates={handleSaveRates}
         onSavePricing={handleSavePricing}
         onSavePity={handleSavePity}
         onSaveBgSettings={handleSaveBgSettings}
         onSetLocalBg={handleSetLocalBg}
+        onSaveQrUrl={handleSaveQrUrl}
+        onSetLocalQr={handleSetLocalQr}
         onSetItemStock={(id, stk) => void handleSetItemStock(id, stk)}
         onAddItem={handleAddItem}
         onRemoveItem={handleRemoveItem}

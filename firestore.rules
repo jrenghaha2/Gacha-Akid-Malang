@@ -120,7 +120,7 @@ service cloud.firestore {
 
     function isValidGachaConfig(data, userId) {
       return data.keys().hasAll(['ownerId', 'configVersion', 'rates', 'pity', 'singlePrice', 'bundles', 'bgBlur', 'bgDim', 'bgUrl', 'createdAt', 'updatedAt'])
-        && data.keys().hasOnly(['ownerId', 'configVersion', 'rates', 'pity', 'singlePrice', 'bundles', 'bgBlur', 'bgDim', 'bgUrl', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'configVersion', 'rates', 'pity', 'singlePrice', 'bundles', 'bgBlur', 'bgDim', 'bgUrl', 'qrUrl', 'createdAt', 'updatedAt'])
         && data.ownerId is string && data.ownerId == userId && data.ownerId == request.auth.uid
         && isValidId(data.ownerId)
         && data.configVersion is string && data.configVersion.size() >= 1 && data.configVersion.size() <= 64
@@ -131,6 +131,7 @@ service cloud.firestore {
         && isNonNegInt(data.bgBlur) && data.bgBlur <= 30
         && isNonNegInt(data.bgDim) && data.bgDim <= 90
         && data.bgUrl is string && data.bgUrl.size() <= 500
+        && (!('qrUrl' in data) || (data.qrUrl is string && data.qrUrl.size() <= 500))
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
     }
@@ -246,7 +247,8 @@ service cloud.firestore {
             || incoming().diff(existing()).affectedKeys().hasOnly(['pity', 'updatedAt'])
             || incoming().diff(existing()).affectedKeys().hasOnly(['singlePrice', 'bundles', 'updatedAt'])
             || incoming().diff(existing()).affectedKeys().hasOnly(['bgBlur', 'bgDim', 'bgUrl', 'updatedAt'])
-            || incoming().diff(existing()).affectedKeys().hasOnly(['configVersion', 'rates', 'pity', 'singlePrice', 'bundles', 'bgBlur', 'bgDim', 'bgUrl', 'updatedAt'])
+            || incoming().diff(existing()).affectedKeys().hasOnly(['qrUrl', 'updatedAt'])
+            || incoming().diff(existing()).affectedKeys().hasOnly(['configVersion', 'rates', 'pity', 'singlePrice', 'bundles', 'bgBlur', 'bgDim', 'bgUrl', 'qrUrl', 'updatedAt'])
           );
 
         allow delete: if isVerifiedOwner(userId)

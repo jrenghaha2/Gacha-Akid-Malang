@@ -112,6 +112,28 @@ export function saveLocalBgDataUrl(dataUrl: string): boolean {
   }
 }
 
+export function loadLocalQrDataUrl(): string {
+  try {
+    const val = localStorage.getItem(STORAGE_KEYS.QR_IMAGE) || '';
+    return val.startsWith('data:image/') ? val : '';
+  } catch {
+    return '';
+  }
+}
+
+export function saveLocalQrDataUrl(dataUrl: string): boolean {
+  try {
+    if (!dataUrl) {
+      localStorage.removeItem(STORAGE_KEYS.QR_IMAGE);
+    } else {
+      localStorage.setItem(STORAGE_KEYS.QR_IMAGE, dataUrl);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Checks if there is either React local offline data OR legacy standalone HTML akidGacha_* data
  * that the user might want to import into their Firebase Cloud workspace.

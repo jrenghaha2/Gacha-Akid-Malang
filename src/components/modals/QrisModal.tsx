@@ -3,10 +3,12 @@ import { sfxPlay } from '../../utils/sfx';
 
 interface QrisModalProps {
   isOpen: boolean;
+  qrImageSrc: string;
+  isDefaultQr?: boolean;
   onClose: () => void;
 }
 
-export const QrisModal: React.FC<QrisModalProps> = ({ isOpen, onClose }) => {
+export const QrisModal: React.FC<QrisModalProps> = ({ isOpen, qrImageSrc, isDefaultQr = true, onClose }) => {
   if (!isOpen) return null;
 
   return (
@@ -26,12 +28,12 @@ export const QrisModal: React.FC<QrisModalProps> = ({ isOpen, onClose }) => {
             Scan kode QR ini buat ngepull, Doc
           </h3>
 
-          <div className="bg-white p-3 rounded-sm inline-block shadow-lg mb-4">
+          <div className="bg-white p-3 rounded-sm inline-flex items-center justify-center shadow-lg mb-4 max-w-full">
             <img
-              src={`${import.meta.env.BASE_URL}qris-code.png`}
+              src={qrImageSrc}
               alt="Kode QR AKID Malang"
-              className="w-56 h-56 object-contain"
-              style={{ imageRendering: 'pixelated' }}
+              className="w-56 max-w-full max-h-72 object-contain"
+              style={isDefaultQr ? { imageRendering: 'pixelated' } : undefined}
             />
           </div>
 

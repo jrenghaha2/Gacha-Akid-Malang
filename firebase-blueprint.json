@@ -88,6 +88,11 @@
           "maxLength": 500,
           "description": "Optional external image URL for synced background."
         },
+        "qrUrl": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Optional external image URL for custom synced QR code."
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time",

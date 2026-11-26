@@ -107,6 +107,7 @@ export interface GachaConfig {
   bgBlur: number;
   bgDim: number;
   bgUrl: string;
+  qrUrl?: string;
 }
 
 export interface GachaItem {
@@ -180,6 +181,7 @@ export const DEFAULT_CONFIG: GachaConfig = {
   bgBlur: 6,
   bgDim: 45,
   bgUrl: '',
+  qrUrl: '',
 };
 
 export const DEFAULT_ITEMS: Array<{ id: string; name: string; tier: Tier; stock: number; sortOrder: number }> = [
@@ -219,4 +221,5 @@ export const STORAGE_KEYS = {
   SFX_ENABLED: 'akidGacha_sfxEnabled',
   BG_IMAGE: 'akidGacha_bgImage',
   BG_SETTINGS: 'akidGacha_bgSettings',
+  QR_IMAGE: 'akidGacha_qrImage',
 };

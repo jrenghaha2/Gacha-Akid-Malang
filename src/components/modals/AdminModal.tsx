@@ -21,7 +21,7 @@ import {
 import { compressImageDataUrl, formatRp, sanitizeImageUrl } from '../../utils/gachaEngine';
 import { sfxPlay } from '../../utils/sfx';
 
-type AdminTab = 'rates' | 'pricing' | 'items' | 'revenue' | 'pity' | 'stats' | 'bg' | 'reset';
+type AdminTab = 'rates' | 'pricing' | 'items' | 'revenue' | 'pity' | 'stats' | 'bg' | 'qr' | 'reset';
 
 interface AdminModalProps {
   isOpen: boolean;
@@ -30,12 +30,15 @@ interface AdminModalProps {
   players: GachaPlayer[];
   history: HistoryEntry[];
   localBgDataUrl: string;
+  localQrDataUrl: string;
   isCloudMode: boolean;
   onSaveRates: (rates: GachaRates) => Promise<void> | void;
   onSavePricing: (singlePrice: number, bundles: PricingBundle[]) => Promise<void> | void;
   onSavePity: (pity: GachaPity) => Promise<void> | void;
   onSaveBgSettings: (bgBlur: number, bgDim: number, bgUrl: string) => Promise<void> | void;
   onSetLocalBg: (dataUrl: string) => void;
+  onSaveQrUrl: (qrUrl: string) => Promise<void> | void;
+  onSetLocalQr: (dataUrl: string) => void;
   onSetItemStock: (itemId: string, stock: number) => void;
   onAddItem: (name: string, tier: Tier, stock: number) => Promise<void> | void;
   onRemoveItem: (itemId: string, itemName: string) => void;
@@ -60,6 +63,7 @@ const TAB_LIST: Array<{ id: AdminTab; label: string }> = [
   { id: 'pity', label: '🎯 PITY' },
   { id: 'stats', label: '📈 STATISTIK' },
   { id: 'bg', label: '🖼️ BG' },
+  { id: 'qr', label: '📱 KODE QR' },
   { id: 'reset', label: '⚠ RESET' },
 ];
 
@@ -70,12 +74,15 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   players,
   history,
   localBgDataUrl,
+  localQrDataUrl,
   isCloudMode,
   onSaveRates,
   onSavePricing,
   onSavePity,
   onSaveBgSettings,
   onSetLocalBg,
+  onSaveQrUrl,
+  onSetLocalQr,
   onSetItemStock,
   onAddItem,
   onRemoveItem,
@@ -118,6 +125,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [bgBusy, setBgBusy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // QR draft
+  const [qrUrlDraft, setQrUrlDraft] = useState<string>(config.qrUrl || '');
+  const [qrBusy, setQrBusy] = useState(false);
+  const qrFileInputRef = useRef<HTMLInputElement>(null);
+
   // Reset confirmation text
   const [resetConfirmText, setResetConfirmText] = useState('');
 
@@ -138,6 +150,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     setBgBlur(config.bgBlur);
     setBgDim(config.bgDim);
     setBgUrlDraft(config.bgUrl || '');
+    setQrUrlDraft(config.qrUrl || '');
     setResetConfirmText('');
   }, [isOpen, config]);
 
@@ -335,7 +348,69 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     );
   };
 
+  const handleQrFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setQrBusy(true);
+    try {
+      const reader = new FileReader();
+      const rawDataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Gagal membaca file gambar QR.'));
+        reader.readAsDataURL(file);
+      });
+      const compressed = await compressImageDataUrl(rawDataUrl, 1024, 0.92);
+      onSetLocalQr(compressed);
+      onShowAlert(
+        'Kode QR Lokal Dipasang',
+        'Gambar kode QR baru berhasil diterapkan pada perangkat ini.'
+      );
+    } catch {
+      onShowAlert('Gagal Upload QR', 'Tidak dapat memproses file gambar tersebut.');
+    } finally {
+      setQrBusy(false);
+      if (qrFileInputRef.current) qrFileInputRef.current.value = '';
+    }
+  };
+
+  const handleSaveQrUrlClick = async () => {
+    sfxPlay('click');
+    const cleanUrl = qrUrlDraft.trim() ? sanitizeImageUrl(qrUrlDraft.trim()) : '';
+    if (qrUrlDraft.trim() && !cleanUrl) {
+      onShowAlert('URL Tidak Valid', 'Gunakan URL gambar berawalan https:// atau http://.');
+      return;
+    }
+    if (cleanUrl && localQrDataUrl) {
+      onSetLocalQr('');
+    }
+    await onSaveQrUrl(cleanUrl);
+    onShowAlert(
+      'Kode QR Disimpan',
+      cleanUrl
+        ? isCloudMode
+          ? 'URL gambar kode QR tersimpan dan otomatis tersinkron ke semua perangkat.'
+          : 'URL gambar kode QR berhasil disimpan.'
+        : 'URL kode QR dikosongkan dan kembali ke gambar QR default.'
+    );
+  };
+
+  const handleResetQrDefault = async () => {
+    sfxPlay('click');
+    onSetLocalQr('');
+    setQrUrlDraft('');
+    await onSaveQrUrl('');
+    onShowAlert('QR Default Dipulihkan', 'Kode QR dikembalikan ke gambar bawaan AKID Malang.');
+  };
+
   const activePreviewBg = sanitizeImageUrl(localBgDataUrl) || sanitizeImageUrl(bgUrlDraft);
+  const defaultQrSrc = `${import.meta.env.BASE_URL}qris-code.png`;
+  const activePreviewQr = sanitizeImageUrl(localQrDataUrl) || sanitizeImageUrl(qrUrlDraft) || defaultQrSrc;
+  const qrSourceLabel = sanitizeImageUrl(localQrDataUrl)
+    ? 'UPLOAD LOKAL (PERANGKAT INI)'
+    : sanitizeImageUrl(qrUrlDraft)
+      ? 'URL CLOUD (SYNC)'
+      : 'QR BAWAAN DEFAULT';
+  const isPreviewDefaultQr = !sanitizeImageUrl(localQrDataUrl) && !sanitizeImageUrl(qrUrlDraft);
 
   return (
     <div
@@ -1045,7 +1120,84 @@ export const AdminModal: React.FC<AdminModalProps> = ({
             </div>
           )}
 
-          {/* 8. RESET */}
+          {/* 8. KODE QR */}
+          {tab === 'qr' && (
+            <div className="space-y-4">
+              <div className="admin-row flex flex-col items-center gap-3 py-4 border border-orange-500/35">
+                <div className="font-mono-tech text-[10px] text-orange-400 tracking-widest">
+                  PREVIEW KODE QR AKTIF · {qrSourceLabel}
+                </div>
+                <div className="bg-white p-3 rounded-sm shadow-lg inline-flex items-center justify-center">
+                  <img
+                    src={activePreviewQr}
+                    alt="Preview Kode QR"
+                    className="w-44 max-h-56 object-contain"
+                    style={isPreviewDefaultQr ? { imageRendering: 'pixelated' } : undefined}
+                  />
+                </div>
+              </div>
+
+              <div className="admin-row space-y-2">
+                <label className="block text-xs font-bold text-cyan-400 uppercase tracking-wider">
+                  URL Gambar QR Cloud (Sync Antar Perangkat)
+                </label>
+                <input
+                  type="url"
+                  value={qrUrlDraft}
+                  onChange={(e) => setQrUrlDraft(e.target.value)}
+                  placeholder="https://contoh.com/kode-qr.png"
+                  className="admin-input"
+                />
+                <p className="text-[11px] text-neutral-400">
+                  Tempel link gambar kode QR publik agar otomatis tersinkron ke semua perangkat yang login akun ini.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void handleSaveQrUrlClick()}
+                  className="btn-press w-full py-2.5 bg-orange-500 hover:bg-orange-400 text-neutral-950 text-xs font-bold tracking-wider"
+                >
+                  💾 SIMPAN URL KODE QR
+                </button>
+              </div>
+
+              <div className="admin-row space-y-2">
+                <div className="text-xs font-bold text-orange-400 uppercase tracking-wider">
+                  Upload Gambar QR dari Perangkat Ini
+                </div>
+                <p className="text-[11px] text-neutral-400">
+                  Pilih file gambar QR langsung dari galeri/komputer (tersimpan lokal di browser perangkat ini).
+                </p>
+                <input
+                  ref={qrFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleQrFileChange}
+                  className="hidden"
+                />
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={qrBusy}
+                    onClick={() => qrFileInputRef.current?.click()}
+                    className="btn-press flex-1 py-2.5 bg-orange-500/20 hover:bg-orange-500/35 border border-orange-500/50 text-orange-300 text-xs font-bold"
+                  >
+                    {qrBusy ? 'MEMPROSES...' : '📁 UPLOAD GAMBAR QR'}
+                  </button>
+                  {!isPreviewDefaultQr && (
+                    <button
+                      type="button"
+                      onClick={() => void handleResetQrDefault()}
+                      className="btn-press px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 text-neutral-200 text-xs font-bold"
+                    >
+                      ↺ QR DEFAULT
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 9. RESET */}
           {tab === 'reset' && (
             <div className="space-y-4">
               <div className="admin-row border-l-amber-500 space-y-2">
